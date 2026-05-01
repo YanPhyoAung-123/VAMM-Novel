@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="my">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - အကောင့်ဝင်ရန်</title>
+    <style>
+        body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; background: #f0f2f5; margin: 0; }
+        .auth-container { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 320px; }
+        h2 { text-align: center; color: #333; }
+        input { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; }
+        button { width: 100%; padding: 12px; background: #007bff; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; margin-top: 10px; }
+        .forgot-link { text-align: right; margin-bottom: 10px; }
+        .forgot-link a { font-size: 13px; color: #555; text-decoration: none; }
+        .link { text-align: center; margin-top: 15px; font-size: 14px; }
+        .reset-box { display: none; margin-top: 20px; border-top: 1px solid #eee; padding-top: 15px; }
+    </style>
+</head>
+<body>
+
+<div class="auth-container">
+    <div id="login-form">
+        <h2>Login ဝင်ရန်</h2>
+        <input type="email" id="email" placeholder="Email">
+        <input type="password" id="password" placeholder="Password">
+        
+        <div class="forgot-link">
+            <a href="#" id="show-reset">Password မေ့သွားပါသလား?</a>
+        </div>
+        
+        <button id="login-btn">Login ဝင်မည်</button>
+        <div class="link">အကောင့်မရှိသေးဘူးလား? <a href="register.html">အကောင့်ဖွင့်ရန်</a></div>
+    </div>
+
+    <div id="reset-box" class="reset-box">
+        <h4>Password ပြန်ယူရန်</h4>
+        <p style="font-size: 12px; color: #666;">သင့် Gmail ထဲကို Password ပြင်ဆင်ရန် Link ပို့ပေးပါမည်။</p>
+        <input type="email" id="reset-email" placeholder="သင့် Gmail ရိုက်ထည့်ပါ">
+        <button id="reset-btn" style="background: #6c757d;">Link ပို့မည်</button>
+        <button id="back-to-login" style="background: none; color: #007bff; border: none;">Login ပြန်သွားရန်</button>
+    </div>
+</div>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.1/firebase-app.js";
+    import { getAuth, signInWithEmailAndPassword, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.12.1/firebase-auth.js";
+
+    const firebaseConfig = {
+        apiKey: "AIzaSyC7wLKQiacs-hdgY1OTgKXX6UnKNW_NibU",
+        authDomain: "webnovel-195.firebaseapp.com",
+        projectId: "webnovel-195",
+        storageBucket: "webnovel-195.firebasestorage.app",
+        messagingSenderId: "355249228773",
+        appId: "1:355249228773:web:4ccda859de48a98dcdfd0c"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+
+    // --- Login လုပ်ငန်းစဉ် ---
+    document.getElementById('login-btn').addEventListener('click', async () => {
+        const email = document.getElementById('email').value;
+        const password = document.getElementById('password').value;
+
+        try {
+            await signInWithEmailAndPassword(auth, email, password);
+            alert("Login အောင်မြင်ပါသည်။");
+            window.location.href = "index.html";
+        } catch (error) {
+            alert("အမှားရှိနေပါသည်: " + error.message);
+        }
+    });
+
+    // --- Password Reset လုပ်ငန်းစဉ် (Gmail သို့ Link ပို့ခြင်း) ---
+    document.getElementById('reset-btn').addEventListener('click', async () => {
+        const email = document.getElementById('reset-email').value;
+        if(!email) { alert("Email ရိုက်ထည့်ပါဦး"); return; }
+
+        try {
+            await sendPasswordResetEmail(auth, email);
+            alert("သင့် Gmail (Inbox သို့မဟုတ် Spam) ထဲကို Password ပြင်ဆင်ရန် Link ပို့လိုက်ပါပြီ။");
+            location.reload(); // Page ကို ပြန်ဖွင့်မယ်
+        } catch (error) {
+            alert("အမှားရှိနေပါသည်: " + error.message);
+        }
+    });
+
+    // အကွက် အဖွင့်အပိတ် လုပ်ရန်
+    document.getElementById('show-reset').onclick = () => {
+        document.getElementById('login-form').style.display = 'none';
+        document.getElementById('reset-box').style.display = 'block';
+    };
+    document.getElementById('back-to-login').onclick = () => {
+        document.getElementById('login-form').style.display = 'block';
+        document.getElementById('reset-box').style.display = 'none';
+    };
+</script>
+
+</body>
+</html>

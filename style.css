@@ -1,0 +1,165 @@
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    margin: 0;
+    background-color: #f4f4f4;
+}
+
+header {
+    background: #333;
+    color: #fff;
+    padding: 1rem 0;
+}
+
+nav {
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+}
+
+nav ul {
+    list-style: none;
+    display: flex;
+    padding: 0; /* padding အပိုတွေ ဖြုတ်ရန် */
+    margin: 0;
+}
+
+nav ul li {
+    margin: 0 15px;
+}
+
+nav ul li a {
+    color: white;
+    text-decoration: none;
+}
+
+.hero {
+    text-align: center;
+    padding: 100px 20px;
+    background: white;
+}
+
+button {
+    padding: 10px 20px;
+    background: #007bff;
+    color: white;
+    border: none;
+    cursor: pointer;
+    border-radius: 5px;
+}
+
+button:hover {
+    background: #0056b3;
+}
+
+.novel-container {
+    padding: 20px;
+    max-width: 800px;
+    margin: auto;
+}
+
+.chapter-card {
+    background: white;
+    padding: 12px;
+    margin-bottom: 15px;
+    display: flex;
+    align-items: center;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+}
+
+.novel-img {
+    width: 60px !important;
+    height: 80px !important;
+    object-fit: cover;
+    border-radius: 6px;
+    margin-right: 15px;
+    background: #eee;
+    display: block;
+}
+
+/* ဒီနေရာက အပိုပါနေတဲ့ } ကို ဖြုတ်လိုက်ပါပြီ */
+
+.novel-info {
+    flex-grow: 1;
+}
+
+.novel-info h3 {
+    margin: 0;
+    font-size: 16px;
+    color: #222;
+}
+
+.meta {
+    font-size: 11px;
+    color: #888;
+    margin: 2px 0;
+}
+
+.chapter-text {
+    font-size: 13px;
+    color: #555;
+    margin: 0;
+}
+
+.read-btn {
+    background: #28a745;
+    color: white;
+    text-decoration: none;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: bold;
+}
+
+#nav-container {
+    margin-top: 50px;
+    padding-bottom: 30px;
+    display: flex; /* display: flex ထည့်မှ gap က အလုပ်လုပ်မှာပါ */
+    justify-content: center;
+    gap: 10px;
+}
+
+.status-badge {
+    background: #e1f5fe;
+    color: #01579b;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 13px;
+    font-weight: bold;
+}
+
+.meta-info {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    font-size: 13px;
+    color: #f39c12;
+    margin-top: 8px;
+}
+
+/* Pagination ကို တစ်မျိုးတည်းအဖြစ် စုစည်းထားပါတယ် */
+.pagination-container, .pagination-nav {
+    display: flex;
+    justify-content: center;
+    gap: 5px;
+    margin: 20px 0;
+    padding-bottom: 30px;
+}
+
+.page-btn {
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    background: white;
+    cursor: pointer;
+    border-radius: 4px; /* ထောင့်လေးတွေ အနည်းငယ် ဝိုင်းသွားအောင် */
+}
+
+.page-btn:hover {
+    background: #f0f0f0;
+}
+
+.page-btn.active, .active-page {
+    background: #333;
+    color: white;
+    border: 1px solid #333;
+}

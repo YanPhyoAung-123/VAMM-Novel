@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Professional Website</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        /* စာသား Select လုပ်၍မရအောင် ပိတ်ထားခြင်း */
+        body {
+            -webkit-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        /* --- Sidebar Styles --- */
+        .sidebar {
+            height: 100%; width: 0; position: fixed; z-index: 1000;
+            top: 0; left: 0; background-color: #1a1a1a;
+            overflow-x: hidden; transition: 0.3s; padding-top: 60px;
+        }
+        .sidebar a {
+            padding: 10px 15px 10px 30px; text-decoration: none;
+            font-size: 16px; color: #eee; display: block; border-bottom: 1px solid #333;
+        }
+        .sidebar .closebtn { position: absolute; top: 0; right: 25px; font-size: 36px; border: none; }
+
+        .search-container { display: flex; align-items: center; padding: 10px 15px; gap: 10px; }
+        .search-box { display: flex; background: #f1f1f1; border-radius: 20px; padding: 5px 15px; flex-grow: 1; }
+        .search-box input { border: none; background: transparent; outline: none; width: 100%; color: #333; }
+        .theme-btn { background: #eee; border: none; border-radius: 50%; width: 35px; height: 35px; cursor: pointer; font-size: 18px; }
+
+        /* Hamburger Menu Icon */
+        .menu-icon { font-size: 24px; cursor: pointer; color: #ff4444; margin-right: 15px; display: flex; flex-direction: column; gap: 4px; }
+        .menu-icon span { display: block; width: 25px; height: 3px; background-color: #ff4444; }
+
+        /* Dark Mode Theme */
+        body.dark-mode { background-color: #121212; color: white; }
+        body.dark-mode .chapter-card { background-color: #222 !important; color: white !important; }
+        body.dark-mode .novel-info h3 { color: white !important; }
+
+        /* Status Badge Style */
+        .status-container { position: relative; display: inline-block; line-height: 0; }
+        .novel-status-tag {
+            position: absolute; bottom: 8px; left: 50%;
+            transform: translateX(-50%); padding: 3px 10px;
+            border-radius: 5px; font-size: 10px; font-weight: bold;
+            color: white; z-index: 5; text-transform: uppercase;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.4); white-space: nowrap;
+        }
+        .status-ongoing { background: rgba(0, 123, 255, 0.95); }
+        .status-completed { background: rgba(40, 167, 69, 0.95); }
+
+        /* --- 📚 Ch. Count & Pagination Styles --- */
+        .chapter-count-meta {
+            margin-top: 8px; font-size: 13px; color: #f39c12; font-weight: bold;
+            display: flex; align-items: center; gap: 5px;
+        }
+        .pagination-container {
+            display: flex; justify-content: center; flex-wrap: wrap;
+            gap: 8px; padding: 30px 10px;
+        }
+        .page-btn {
+            padding: 8px 14px; border: 1px solid #ddd; background: white;
+            border-radius: 4px; cursor: pointer; font-weight: bold;
+        }
+        .active-page {
+            background: #ff4444; color: white; border-color: #ff4444;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="mySidebar" class="sidebar">
+        <a href="javascript:void(0)" class="closebtn" onclick="closeNav()">&times;</a>
+        <div class="search-container">
+            <div class="search-box">
+                <input type="text" id="novelSearchInput" placeholder="Search novel...">
+                <button onclick="searchNovel()">🔍</button>
+            </div>
+            <button id="theme-toggle" class="theme-btn">☀️</button>
+        </div>
+        <div id="search-result" style="color:red; font-size:12px; padding-left:20px;"></div>
+        <div class="genre-list">
+            <a href="javascript:void(0)" onclick="loadNovels(); closeNav();" style="color: #ff4444; font-weight: bold;">🏠 Home Page</a>
+            <a href="how-to-buy.html">🪙 Coin ဝယ်ယူနည်း အညွှန်း</a>
+            <a href="support.html">အကူအညီနှင့် ပံ့ပိုးမှု</a>
+        </div>
+    </div>
+
+    <header>
+        <nav style="display: flex; align-items: center;">
+            <div class="menu-icon" onclick="openNav()"><span></span><span></span><span></span></div>
+            <div class="logo">VAMM</div>
+            <ul style="margin-left: auto; display: flex; list-style: none; gap: 15px;">
+                <li><a href="profile.html">Profile</a></li>
+                <li><a href="buy-coin.html">Buy(Coin)</a></li>
+                <li><a href="login.html" id="login-btn" style="color: white; text-decoration: none;">Login</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <main>
+        <section class="novel-container" id="novel-list">
+            <h2 id="section-title">လတ်တလောထွက်ထားသော စာစဉ်များ</h2>
+        </section>
+        
+        <div id="pagination-container" class="pagination-container"></div>
+    </main>
+
+    <script>
+        function openNav() { document.getElementById("mySidebar").style.width = "280px"; }
+        function closeNav() { document.getElementById("mySidebar").style.width = "0"; }
+        document.addEventListener('contextmenu', event => event.preventDefault());
+        document.onkeydown = function(e) {
+            if (e.ctrlKey && (e.keyCode === 67 || e.keyCode === 85 || e.keyCode === 83 || (e.shiftKey && e.keyCode === 73))) return false;
+            if (e.keyCode === 123) return false;
+        };
+        const themeBtn = document.getElementById('theme-toggle');
+        themeBtn.onclick = () => {
+            document.body.classList.toggle('dark-mode');
+            themeBtn.innerText = document.body.classList.contains('dark-mode') ? '🌚' : '☀️';
+        };
+    </script>
+    
+    <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.1/firebase-app.js";
+    import { getFirestore, collection, getDocs, query, orderBy, where } from "https://www.gstatic.com/firebasejs/10.12.1/firebase-firestore.js";
+    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.1/firebase-auth.js";
+
+    const firebaseConfig = {
+        apiKey: "AIzaSyC7wLKQiacs-hdgY1OTgKXX6UnKNW_NibU",
+        authDomain: "webnovel-195.firebaseapp.com",
+        projectId: "webnovel-195",
+        storageBucket: "webnovel-195.firebasestorage.app",
+        messagingSenderId: "355249228773",
+        appId: "1:355249228773:web:4ccda859de48a98dcdfd0c"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const auth = getAuth(app);
+
+    const novelsPerPage = 10;
+    let allNovelsData = [];
+
+    // Filter Logic
+    window.filterByGenre = async (genre) => {
+        const novelContainer = document.querySelector('.novel-container');
+        novelContainer.innerHTML = `<h2>Results: ${genre}</h2><p style='padding:20px;'>ရှာဖွေနေပါသည်...</p>`;
+        document.getElementById('pagination-container').innerHTML = "";
+        
+        try {
+            const terms = [genre, genre.toLowerCase(), genre.toUpperCase(), genre.charAt(0).toUpperCase() + genre.slice(1).toLowerCase()];
+            let q = (genre === "Completed" || genre === "Ongoing") 
+                    ? query(collection(db, "novels"), where("status", "in", terms))
+                    : query(collection(db, "novels"), where("genre", "in", terms));
+            
+            const snap = await getDocs(q);
+            allNovelsData = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            displayPage(1, `Results: ${genre}`); 
+        } catch (error) { console.error(error); }
+        closeNav();
+    };
+
+    // ပြင်ဆင်ချက် ၂: Search လုပ်ပြီးရင် Sidebar ပိတ်မသွားအောင် ပြင်ထားသည်
+    window.searchNovel = async () => {
+        const val = document.getElementById('novelSearchInput').value.toLowerCase();
+        if(!val) return;
+        document.getElementById('pagination-container').innerHTML = "";
+
+        const q = query(collection(db, "novels"), where("title", ">=", val), where("title", "<=", val + '\uf8ff'));
+        const snap = await getDocs(q);
+        
+        if(snap.empty) {
+            document.getElementById('search-result').innerText = "ရှာမတွေ့ပါ။";
+        } else {
+            document.getElementById('search-result').innerText = "";
+            allNovelsData = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            displayPage(1, `Search Results: ${val}`);
+            // closeNav(); ကို ဖြုတ်လိုက်ပါသည်
+        }
+    };
+
+    async function getChapterCount(novelId) {
+        const q = query(collection(db, "chapters"), where("novelId", "==", novelId));
+        const snap = await getDocs(q);
+        return snap.size;
+    }
+
+    // displayPage ထဲမှာ Title ပါ တစ်ခါတည်း ပြင်လို့ရအောင် လုပ်ထားသည်
+    async function displayPage(page, title = "လတ်တလောထွက်ထားသော စာစဉ်များ") {
+        const novelContainer = document.querySelector('.novel-container');
+        const start = (page - 1) * novelsPerPage;
+        const end = start + novelsPerPage;
+        const pagedData = allNovelsData.slice(start, end);
+
+        novelContainer.innerHTML = `<h2>${title}</h2>`;
+
+        if(pagedData.length === 0) {
+            novelContainer.innerHTML += `<p style='padding:20px;'>ဝတ္ထုများ မရှိသေးပါ။</p>`;
+            return;
+        }
+
+        for (const data of pagedData) {
+            const count = await getChapterCount(data.id);
+            const statusClass = (data.status?.toLowerCase() === "completed") ? "status-completed" : "status-ongoing";
+            
+            novelContainer.innerHTML += `
+                <div class="chapter-card" onclick="window.location.href='detail.html?id=${data.id}'" style="cursor:pointer; display: flex; align-items: center; margin-bottom: 15px; background: white; padding: 10px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.05);">
+                    <div class="status-container"> 
+                        <img src="${data.image || 'https://via.placeholder.com/60x80'}" style="width: 80px; height: 110px; border-radius: 8px; object-fit: cover;">
+                        <span class="novel-status-tag ${statusClass}">${data.status || 'Ongoing'}</span>
+                    </div>
+                    <div class="novel-info" style="padding-left: 15px;">
+                        <h3 style="margin: 0; color: #333;">${data.title}</h3>
+                        <p style="margin: 5px 0; color: #666; font-size: 13px;">${data.genre} | Transl: ${data.translator}</p>
+                        <div class="chapter-count-meta">📚 Ch. ${count}</div>
+                    </div>
+                </div>`;
+        }
+        renderPagination(allNovelsData.length, page, title);
+    }
+
+    function renderPagination(total, current, title) {
+        const totalPages = Math.ceil(total / novelsPerPage);
+        const container = document.getElementById('pagination-container');
+        container.innerHTML = "";
+        if(totalPages <= 1) return;
+
+        for (let i = 1; i <= totalPages; i++) {
+            const btn = document.createElement('button');
+            btn.innerText = i;
+            btn.className = (i === current) ? "page-btn active-page" : "page-btn";
+            btn.onclick = () => {
+                window.scrollTo(0, 0);
+                displayPage(i, title);
+            };
+            container.appendChild(btn);
+        }
+    }
+
+    // global loadNovels အဖြစ် သတ်မှတ်ထားသည် (Sidebar က ခေါ်သုံးနိုင်ရန်)
+    window.loadNovels = async () => {
+        const q = query(collection(db, "novels"));
+        const snap = await getDocs(q);
+        allNovelsData = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        displayPage(1);
+    }
+    loadNovels();
+
+    const loginBtn = document.getElementById('login-btn');
+    onAuthStateChanged(auth, (user) => {
+        if (user) {
+            loginBtn.innerText = "Online";
+            loginBtn.style.opacity = "0.6";
+        }
+    });
+    </script>
+</body>
+</html>

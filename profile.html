@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="my">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced User Profile</title>
+    <style>
+        body { font-family: sans-serif; background: #f0f2f5; margin: 0; padding: 20px; }
+        .profile-container { max-width: 450px; margin: auto; background: white; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); padding: 20px; }
+        
+        /* ၁။ ဓာတ်ပုံနေရာ */
+        .photo-section { position: relative; width: 120px; height: 120px; margin: 0 auto 20px; text-align: center; }
+        .profile-img { width: 100%; height: 100%; border-radius: 15px; object-fit: cover; border: 3px solid #28a745; background: #eee; }
+        .change-photo-btn { margin-top: 10px; font-size: 13px; color: #007bff; cursor: pointer; display: block; font-weight: bold; }
+
+        /* Avatar Modal */
+        .avatar-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 100; }
+        .avatar-content { background: white; width: 90%; max-width: 400px; margin: 50px auto; padding: 20px; border-radius: 15px; text-align: center; }
+        .avatar-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; max-height: 300px; overflow-y: auto; margin: 15px 0; padding: 10px; }
+        .avatar-grid img { width: 100%; aspect-ratio: 1; border-radius: 10px; cursor: pointer; border: 2px solid transparent; }
+        .avatar-grid img:hover { border-color: #28a745; }
+
+        /* အချက်အလက်များ */
+        .input-group { margin-bottom: 15px; text-align: left; }
+        label { font-size: 13px; color: #666; display: block; margin-bottom: 5px; }
+        input, select { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; }
+        
+        /* Gmail ပြသမည့် စတိုင် */
+        .user-email-text { text-align: center; font-size: 14px; color: #555; margin-top: -10px; margin-bottom: 15px; background: #f8f9fa; padding: 5px; border-radius: 5px; }
+
+        .coin-row { display: flex; gap: 10px; margin: 20px 0; }
+        .coin-box { flex: 1; background: #fff9e6; border: 1px solid #ffeeba; padding: 15px; border-radius: 12px; text-align: center; }
+        .coin-box span { display: block; font-size: 20px; font-weight: bold; color: #856404; }
+
+        .save-btn { width: 100%; padding: 12px; background: #28a745; color: white; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; margin-bottom: 10px; }
+        .logout-btn { width: 100%; padding: 10px; background: none; color: #dc3545; border: 1px solid #dc3545; border-radius: 10px; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+<div class="profile-container">
+    <div class="photo-section">
+        <img id="profile-display" src="https://via.placeholder.com/120" class="profile-img">
+        <span class="change-photo-btn" id="open-avatars">ပုံရွေးမည်</span>
+    </div>
+
+    <div id="avatarModal" class="avatar-modal">
+        <div class="avatar-content">
+            <h4>ကာတွန်းပုံလေး ရွေးပါ</h4>
+            <div class="avatar-grid" id="avatarGrid"></div>
+            <button onclick="document.getElementById('avatarModal').style.display='none'" style="padding:8px 20px; border-radius:5px; border:1px solid #ccc; cursor:pointer;">ပိတ်မည်</button>
+        </div>
+    </div>
+
+    <div class="input-group">
+        <label>အမည် (Unique)</label>
+        <input type="text" id="username" placeholder="နာမည်ရိုက်ထည့်ပါ">
+    </div>
+    
+    <div id="display-email" class="user-email-text">-</div>
+
+    <div class="input-group">
+        <label>အမျိုးအစား</label>
+        <select id="gender">
+            <option value="male">ကျား</option>
+            <option value="female">မ</option>
+        </select>
+    </div>
+
+    <p id="join-date" style="font-size: 12px; color: #888;">အကောင့်စဝင်သည့်ရက်: -</p>
+
+    <div class="coin-row">
+        <div class="coin-box">
+            <label>လက်ကျန် Coin</label>
+            <span id="coin-balance">0</span>
+        </div>
+        <div class="coin-box">
+            <label>ဝယ်ယူသည့်အကြိမ်</label>
+            <span id="buy-count">0</span>
+        </div>
+    </div>
+
+    <button class="save-btn" id="save-profile">အချက်အလက်များ သိမ်းဆည်းမည်</button>
+    <button class="logout-btn" id="logout-btn">အကောင့်မှ ထွက်မည်</button>
+</div>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.1/firebase-app.js";
+    import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.1/firebase-auth.js";
+    import { getFirestore, doc, getDoc, setDoc, query, collection, where, getDocs } from "https://www.gstatic.com/firebasejs/10.12.1/firebase-firestore.js";
+
+    const firebaseConfig = {
+        apiKey: "AIzaSyC7wLKQiacs-hdgY1OTgKXX6UnKNW_NibU",
+        authDomain: "webnovel-195.firebaseapp.com",
+        projectId: "webnovel-195",
+        storageBucket: "webnovel-195.firebasestorage.app",
+        messagingSenderId: "355249228773",
+        appId: "1:355249228773:web:4ccda859de48a98dcdfd0c"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const auth = getAuth(app);
+
+    let currentUser = null;
+    let selectedAvatarUrl = "";
+
+    // Avatar Grid ထည့်ခြင်း
+    const avatarGrid = document.getElementById('avatarGrid');
+    for(let i=1; i<=20; i++) {
+        const img = document.createElement('img');
+        img.src = `https://api.dicebear.com/7.x/adventurer/svg?seed=${i}`; 
+        img.onclick = () => selectAvatar(img.src);
+        avatarGrid.appendChild(img);
+    }
+
+    onAuthStateChanged(auth, async (user) => {
+        if (user) {
+            currentUser = user;
+            document.getElementById('display-email').innerText = user.email; // Gmail ပြသခြင်း
+            loadProfileData(user);
+        } else {
+            window.location.href = "login.html";
+        }
+    });
+
+    async function loadProfileData(user) {
+        const docSnap = await getDoc(doc(db, "users", user.uid));
+        if (docSnap.exists()) {
+            const data = docSnap.data();
+            document.getElementById('username').value = data.username || "";
+            document.getElementById('gender').value = data.gender || "male";
+            
+            // လက်ကျန် Coin နှင့် Admin မှ ဖြည့်ပေးသော ဝယ်ယူသည့်အကြိမ် (purchaseCount)
+            document.getElementById('coin-balance').innerText = data.coins !== undefined ? data.coins : 0;
+            document.getElementById('buy-count').innerText = data.purchaseCount !== undefined ? data.purchaseCount : 0;
+            
+            document.getElementById('profile-display').src = data.photoURL || "https://via.placeholder.com/120";
+            selectedAvatarUrl = data.photoURL || "";
+            document.getElementById('join-date').innerText = "အကောင့်စဝင်သည့်ရက်: " + new Date(user.metadata.creationTime).toLocaleDateString();
+        }
+    }
+
+    document.getElementById('open-avatars').onclick = () => {
+        document.getElementById('avatarModal').style.display = 'block';
+    };
+
+    async function selectAvatar(url) {
+        const docSnap = await getDoc(doc(db, "users", currentUser.uid));
+        const lastChange = docSnap.data()?.lastPhotoChange || 0;
+        const now = Date.now();
+        
+        // ရက် ၃၀ စစ်ဆေးသည့် မူရင်း logic
+        if (now - lastChange < (30 * 24 * 60 * 60 * 1000)) {
+            const days = Math.ceil(((30 * 24 * 60 * 60 * 1000) - (now - lastChange)) / (1000 * 60 * 60 * 24));
+            alert(`ပုံပြန်ချိန်းရန် ${days} ရက် စောင့်ပါဦး`);
+            return;
+        }
+
+        selectedAvatarUrl = url;
+        document.getElementById('profile-display').src = url;
+        document.getElementById('avatarModal').style.display = 'none';
+    }
+
+    document.getElementById('save-profile').onclick = async () => {
+        const newName = document.getElementById('username').value.trim();
+        const gender = document.getElementById('gender').value;
+
+        if(!newName) return alert("နာမည်ထည့်ပါ");
+
+        // နာမည်တူ စစ်ဆေးသည့် logic
+        const q = query(collection(db, "users"), where("username", "==", newName));
+        const qSnap = await getDocs(q);
+        let isDuplicate = false;
+        qSnap.forEach(d => { if(d.id !== currentUser.uid) isDuplicate = true; });
+
+        if(isDuplicate) return alert("ဤနာမည်ကို တစ်ယောက်ယောက် ယူထားပြီးပါပြီ။");
+
+        const userDoc = await getDoc(doc(db, "users", currentUser.uid));
+        const oldPhotoURL = userDoc.data()?.photoURL || "";
+
+        const updateData = {
+            username: newName,
+            gender: gender,
+            photoURL: selectedAvatarUrl
+        };
+
+        if (selectedAvatarUrl !== oldPhotoURL && selectedAvatarUrl !== "") {
+            updateData.lastPhotoChange = Date.now();
+        }
+
+        try {
+            await setDoc(doc(db, "users", currentUser.uid), updateData, { merge: true });
+            alert("သိမ်းဆည်းပြီးပါပြီ။ Home Page သို့ ပြန်သွားပါမည်။");
+            window.location.href = "index.html"; // Redirect to Home Page
+        } catch (e) {
+            alert("Error: " + e.message);
+        }
+    };
+
+    document.getElementById('logout-btn').onclick = () => {
+        signOut(auth).then(() => { window.location.href = "login.html"; });
+    };
+</script>
+</body>
+</html>

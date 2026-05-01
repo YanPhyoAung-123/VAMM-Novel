@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="my">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Buy Coins - VAMM</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        body { font-family: sans-serif; background-color: #f4f4f4; margin: 0; }
+        header { background: #333; color: white; padding: 15px; text-align: center; font-weight: bold; }
+        
+        .container { max-width: 600px; margin: auto; padding: 20px; text-align: center; }
+        h2 { margin-bottom: 10px; }
+        .balance-text { font-size: 18px; font-weight: bold; margin-bottom: 25px; display: block; }
+
+        /* Coin Grid */
+        .coin-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 30px; }
+        
+        .coin-card { 
+            background: white; border-radius: 12px; padding: 20px; 
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05); text-align: center;
+            cursor: pointer; transition: 0.3s; border: 1px solid #eee;
+        }
+        .coin-card:hover { transform: translateY(-5px); border-color: #28a745; }
+        
+        .coin-info { font-size: 22px; font-weight: bold; color: #b8860b; margin-bottom: 5px; display: block; }
+        .coin-price { font-size: 16px; color: #555; margin-bottom: 15px; display: block; }
+        
+        .buy-btn { 
+            background: #28a745; color: white; border: none; 
+            padding: 10px; border-radius: 6px; width: 100%; font-weight: bold; 
+        }
+
+        /* Screenshot Section */
+        .screenshot-section {
+            background: white; padding: 20px; border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-top: 10px;
+            border: 1px dashed #0088cc;
+        }
+        .telegram-btn { 
+            background: #0088cc; color: white; border: none; padding: 15px;
+            border-radius: 8px; width: 100%; font-weight: bold; font-size: 16px;
+            display: flex; align-items: center; justify-content: center; gap: 10px;
+            text-decoration: none; cursor: pointer;
+        }
+
+        /* Payment Modal Styling */
+        .modal { display: none; position: fixed; z-index: 100; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); }
+        .modal-content { background: white; margin: 15% auto; padding: 25px; border-radius: 15px; width: 85%; max-width: 400px; text-align: center; }
+        
+        .pay-option { 
+            display: flex; align-items: center; justify-content: center; gap: 12px;
+            width: 100%; padding: 12px; margin: 10px 0; border-radius: 8px; 
+            border: 1px solid #ddd; font-weight: bold; cursor: pointer;
+            transition: background-color 0.3s ease; /* အရောင်ပြောင်းတာ ချောမွေ့ဖို့ */
+        }
+        
+        /* Logo Styling */
+        .pay-logo { width: 26px; height: 26px; border-radius: 5px; }
+
+        .kpay-btn { background: #0056b3; color: white; }
+        .wave-btn { background: #f7d117; color: #1d388e; } 
+        
+        /* ခလုတ်နှိပ်လိုက်တဲ့အခါ ပြောင်းမယ့် အနီရောင် style */
+        .active-red { background-color: #ff0000 !important; color: white !important; }
+
+        .cancel-btn { background: #eee; color: #333; justify-content: center; border: none; }
+        .payment-info { background: #f9f9f9; padding: 15px; border-radius: 10px; margin-top: 15px; border: 1px solid #28a745; display: none; }
+    </style>
+</head>
+<body>
+
+    <header>VAMM</header>
+
+    <div class="container">
+        <h2>Coin ဝယ်ယူရန်</h2>
+        <span class="balance-text" id="user-balance">သင့်လက်ကျန် Coin: ...</span>
+
+        <div class="coin-grid" id="coin-list"></div>
+
+        <div class="screenshot-section">
+            <p style="color: #666; font-size: 14px; margin-bottom: 15px; font-weight: bold;">
+                *ငွေလွှဲပြီးပါက အောက်ကခလုတ်ကိုနှိပ်၍ Screenshot ပို့ပေးပါ*
+            </p>
+            <a href="https://t.me/Vamm195" target="_blank" class="telegram-btn">
+                <img src="https://upload.wikimedia.org/wikipedia/commons/8/82/Telegram_logo.svg" width="22" height="22">
+                Screenshot ပေးပို့ရန်
+            </a>
+        </div>
+    </div>
+
+    <div id="paymentModal" class="modal">
+        <div class="modal-content">
+            <h3 style="margin-top:0;">ငွေပေးချေမှုပုံစံ ရွေးချယ်ပါ</h3>
+            
+            <button id="kbzBtn" class="pay-option kpay-btn" onclick="showAccount('KBZPay')">
+                <img src="https://mrtv.gov.mm/sites/default/files/styles/medium/public/2021-11/kbz-pay-logo.png" class="pay-logo">
+                KBZPay
+            </button>
+            
+            <button id="waveBtn" class="pay-option wave-btn" onclick="showAccount('WavePay')">
+                <img src="https://www.wavemoney.com.mm/images/wave-pay-logo.png" class="pay-logo">
+                WavePay
+            </button>
+            
+            <button class="pay-option cancel-btn" onclick="closeModal()">နောက်မှဝယ်မည်</button>
+
+            <div id="account-details" class="payment-info">
+                <p id="acc-name" style="font-weight: bold; margin: 5px 0; font-size: 18px;"></p>
+                <p id="acc-phone" style="font-size: 18px; color: #28a745; font-weight: bold; margin: 5px 0;"></p>
+                <button class="pay-option cancel-btn" onclick="closeModal()" style="margin-top: 15px;">ပိတ်မည်</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.1/firebase-app.js";
+        import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.1/firebase-firestore.js";
+        import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.1/firebase-auth.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyC7wLKQiacs-hdgY1OTgKXX6UnKNW_NibU",
+            authDomain: "webnovel-195.firebaseapp.com",
+            projectId: "webnovel-195",
+            storageBucket: "webnovel-195.firebasestorage.app",
+            messagingSenderId: "355249228773",
+            appId: "1:355249228773:web:4ccda859de48a98dcdfd0c"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+
+        const packages = [
+            { coins: "🪙 500", price: "၅၀၀ ကျပ်" },
+            { coins: "🪙 1000(10)", price: "၁၀၀၀ ကျပ်" },
+            { coins: "🪙 2000(30)", price: "၂၀၀၀ ကျပ်" },
+            { coins: "🪙 4000(50)", price: "၄၀၀၀ ကျပ်" },
+            { coins: "🪙 5000(200)", price: "၅၀၀၀ ကျပ်" },
+            { coins: "🪙 10000(1000)", price: "၁၀၀၀၀ ကျပ်" }
+        ];
+
+        const coinList = document.getElementById('coin-list');
+        packages.forEach(pkg => {
+            coinList.innerHTML += `
+                <div class="coin-card" onclick="openModal()">
+                    <span class="coin-info">${pkg.coins}</span>
+                    <span class="coin-price">${pkg.price}</span>
+                    <button class="buy-btn">ဝယ်ယူမည်</button>
+                </div>
+            `;
+        });
+
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                const userDoc = await getDoc(doc(db, "users", user.uid));
+                document.getElementById('user-balance').innerText = `သင့်လက်ကျန် Coin: ${userDoc.data()?.coins || 0}`;
+            } else {
+                window.location.href = "login.html";
+            }
+        });
+
+        window.openModal = () => {
+            document.getElementById('paymentModal').style.display = 'block';
+            document.getElementById('account-details').style.display = 'none';
+            // Modal ဖွင့်တိုင်း အရောင်ဟောင်း ပြန်ဖြစ်အောင် class ပြန်ဖြုတ်မယ်
+            document.getElementById('kbzBtn').classList.remove('active-red');
+            document.getElementById('waveBtn').classList.remove('active-red');
+        };
+
+        window.closeModal = () => {
+            document.getElementById('paymentModal').style.display = 'none';
+        };
+
+        window.showAccount = (method) => {
+            const details = document.getElementById('account-details');
+            const name = document.getElementById('acc-name');
+            const phone = document.getElementById('acc-phone');
+            
+            // ခလုတ်အရောင်ပြောင်းမယ့် အပိုင်း
+            const kbzBtn = document.getElementById('kbzBtn');
+            const waveBtn = document.getElementById('waveBtn');
+
+            if (method === 'KBZPay') {
+                name.innerText = "နာမည် - Nan Yoon Nadi Hlaing";
+                phone.innerText = "ဖုန်းနံပါတ် - 09699207248";
+                // KBZ ကို အနီပြောင်း၊ Wave ကို မူရင်းအတိုင်းထား
+                kbzBtn.classList.add('active-red');
+                waveBtn.classList.remove('active-red');
+            } else {
+                name.innerText = "နာမည် - Yan Phyo Aung";
+                phone.innerText = "ဖုန်းနံပါတ် - 09942880180";
+                // Wave ကို အနီပြောင်း၊ KBZ ကို မူရင်းအတိုင်းထား
+                waveBtn.classList.add('active-red');
+                kbzBtn.classList.remove('active-red');
+            }
+            details.style.display = 'block';
+        };
+    </script>
+</body>
+</html>
