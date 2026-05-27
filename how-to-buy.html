@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Coin ဝယ်ယူနည်း အညွှန်း</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#000000">
     <style>
         body {
             font-family: 'Pyidaungsu', sans-serif;
@@ -120,6 +122,15 @@
 
     <a href="index.html" class="back-btn">ရှေ့သို့ပြန်သွားရန်</a>
 </div>
-
+<script>
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js');
+  }
+</script>
+<script>
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('sw.js');
+      }
+    </script>
 </body>
 </html>
