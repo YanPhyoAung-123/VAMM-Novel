@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Buy Coins - VAMM</title>
     <link rel="stylesheet" href="style.css">
+        <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#000000">
     <style>
         body { font-family: sans-serif; background-color: #f4f4f4; margin: 0; }
         header { background: #333; color: white; padding: 15px; text-align: center; font-weight: bold; }
@@ -196,6 +198,11 @@
             }
             details.style.display = 'block';
         };
+    </script>
+    <script>
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('sw.js');
+      }
     </script>
 </body>
 </html>
