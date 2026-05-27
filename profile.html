@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Advanced User Profile</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#000000">
     <style>
         body { font-family: sans-serif; background: #f0f2f5; margin: 0; padding: 20px; }
         .profile-container { max-width: 450px; margin: auto; background: white; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); padding: 20px; }
@@ -202,5 +204,10 @@
         signOut(auth).then(() => { window.location.href = "login.html"; });
     };
 </script>
+<script>
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('sw.js');
+      }
+    </script>
 </body>
 </html>
