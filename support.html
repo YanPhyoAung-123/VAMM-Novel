@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Support & Contact</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#000000">
     <style>
         body {
             font-family: sans-serif;
@@ -79,6 +81,10 @@
         <br>
         <button onclick="history.back()" style="border:none; background:none; color:#888; cursor:pointer;">← နောက်သို့ပြန်သွားရန်</button>
     </div>
-
+<script>
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('sw.js');
+      }
+    </script>
 </body>
 </html>
