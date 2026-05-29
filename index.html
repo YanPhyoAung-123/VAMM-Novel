@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>My Professional Website</title>
     <link rel="stylesheet" href="style.css">
-        <link rel="manifest" href="manifest.json">
+    <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#000000">
     <style>
         /* စာသား Select လုပ်၍မရအောင် ပိတ်ထားခြင်း */
@@ -23,15 +23,12 @@
             overflow-x: hidden; transition: 0.3s; padding-top: 60px;
         }
         .sidebar a {
-            padding: 10px 15px 10px 30px; text-decoration: none;
+            padding: 15px 30px; text-decoration: none;
             font-size: 16px; color: #eee; display: block; border-bottom: 1px solid #333;
         }
-        .sidebar .closebtn { position: absolute; top: 0; right: 25px; font-size: 36px; border: none; }
+        .sidebar .closebtn { position: absolute; top: 0; right: 25px; font-size: 36px; border: none; cursor: pointer; }
 
-        .search-container { display: flex; align-items: center; padding: 10px 15px; gap: 10px; }
-        .search-box { display: flex; background: #f1f1f1; border-radius: 20px; padding: 5px 15px; flex-grow: 1; }
-        .search-box input { border: none; background: transparent; outline: none; width: 100%; color: #333; }
-        .theme-btn { background: #eee; border: none; border-radius: 50%; width: 35px; height: 35px; cursor: pointer; font-size: 18px; }
+        .theme-btn { background: #eee; border: none; border-radius: 5px; padding: 5px 15px; cursor: pointer; margin: 20px 30px; }
 
         /* Hamburger Menu Icon */
         .menu-icon { font-size: 24px; cursor: pointer; color: #ff4444; margin-right: 15px; display: flex; flex-direction: column; gap: 4px; }
@@ -76,25 +73,16 @@
 
     <div id="mySidebar" class="sidebar">
         <a href="javascript:void(0)" class="closebtn" onclick="closeNav()">&times;</a>
-        <div class="search-container">
-            <div class="search-box">
-                <input type="text" id="novelSearchInput" placeholder="Search novel...">
-                <button onclick="searchNovel()">🔍</button>
-            </div>
-            <button id="theme-toggle" class="theme-btn">☀️</button>
-        </div>
-        <div id="search-result" style="color:red; font-size:12px; padding-left:20px;"></div>
-        <div class="genre-list">
-            <a href="javascript:void(0)" onclick="loadNovels(); closeNav();" style="color: #ff4444; font-weight: bold;">🏠 Home Page</a>
-            <a href="how-to-buy.html">🪙 Coin ဝယ်ယူနည်း အညွှန်း</a>
-            <a href="support.html">အကူအညီနှင့် ပံ့ပိုးမှု</a>
-        </div>
+        <button id="theme-toggle" class="theme-btn">☀️ Toggle Dark Mode</button>
+        <a href="index.html">🏠 Home Page</a>
+        <a href="how-to-buy.html">🪙 Coin ဝယ်ယူနည်း အညွှန်း</a>
+        <a href="support.html">အကူအညီနှင့် ပံ့ပိုးမှု</a>
     </div>
 
     <header>
-        <nav style="display: flex; align-items: center;">
+        <nav style="display: flex; align-items: center; padding: 15px;">
             <div class="menu-icon" onclick="openNav()"><span></span><span></span><span></span></div>
-            <div class="logo">VAMM</div>
+            <div class="logo" style="font-weight: bold; font-size: 20px;">VAMM</div>
             <ul style="margin-left: auto; display: flex; list-style: none; gap: 15px;">
                 <li><a href="profile.html">Profile</a></li>
                 <li><a href="buy-coin.html">Buy(Coin)</a></li>
@@ -104,7 +92,7 @@
     </header>
 
     <main>
-        <section class="novel-container" id="novel-list">
+        <section class="novel-container" id="novel-list" style="padding: 10px;">
             <h2 id="section-title">လတ်တလောထွက်ထားသော စာစဉ်များ</h2>
         </section>
         
@@ -122,13 +110,13 @@
         const themeBtn = document.getElementById('theme-toggle');
         themeBtn.onclick = () => {
             document.body.classList.toggle('dark-mode');
-            themeBtn.innerText = document.body.classList.contains('dark-mode') ? '🌚' : '☀️';
+            themeBtn.innerText = document.body.classList.contains('dark-mode') ? '🌚 Light Mode' : '☀️ Dark Mode';
         };
     </script>
     
     <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.1/firebase-app.js";
-    import { getFirestore, collection, getDocs, query, orderBy, where } from "https://www.gstatic.com/firebasejs/10.12.1/firebase-firestore.js";
+    import { getFirestore, collection, getDocs, query } from "https://www.gstatic.com/firebasejs/10.12.1/firebase-firestore.js";
     import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.1/firebase-auth.js";
 
     const firebaseConfig = {
@@ -147,51 +135,6 @@
     const novelsPerPage = 10;
     let allNovelsData = [];
 
-    // Filter Logic
-    window.filterByGenre = async (genre) => {
-        const novelContainer = document.querySelector('.novel-container');
-        novelContainer.innerHTML = `<h2>Results: ${genre}</h2><p style='padding:20px;'>ရှာဖွေနေပါသည်...</p>`;
-        document.getElementById('pagination-container').innerHTML = "";
-        
-        try {
-            const terms = [genre, genre.toLowerCase(), genre.toUpperCase(), genre.charAt(0).toUpperCase() + genre.slice(1).toLowerCase()];
-            let q = (genre === "Completed" || genre === "Ongoing") 
-                    ? query(collection(db, "novels"), where("status", "in", terms))
-                    : query(collection(db, "novels"), where("genre", "in", terms));
-            
-            const snap = await getDocs(q);
-            allNovelsData = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            displayPage(1, `Results: ${genre}`); 
-        } catch (error) { console.error(error); }
-        closeNav();
-    };
-
-    // ပြင်ဆင်ချက် ၂: Search လုပ်ပြီးရင် Sidebar ပိတ်မသွားအောင် ပြင်ထားသည်
-    window.searchNovel = async () => {
-        const val = document.getElementById('novelSearchInput').value.toLowerCase();
-        if(!val) return;
-        document.getElementById('pagination-container').innerHTML = "";
-
-        const q = query(collection(db, "novels"), where("title", ">=", val), where("title", "<=", val + '\uf8ff'));
-        const snap = await getDocs(q);
-        
-        if(snap.empty) {
-            document.getElementById('search-result').innerText = "ရှာမတွေ့ပါ။";
-        } else {
-            document.getElementById('search-result').innerText = "";
-            allNovelsData = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            displayPage(1, `Search Results: ${val}`);
-            // closeNav(); ကို ဖြုတ်လိုက်ပါသည်
-        }
-    };
-
-    async function getChapterCount(novelId) {
-        const q = query(collection(db, "chapters"), where("novelId", "==", novelId));
-        const snap = await getDocs(q);
-        return snap.size;
-    }
-
-    // displayPage ထဲမှာ Title ပါ တစ်ခါတည်း ပြင်လို့ရအောင် လုပ်ထားသည်
     async function displayPage(page, title = "လတ်တလောထွက်ထားသော စာစဉ်များ") {
         const novelContainer = document.querySelector('.novel-container');
         const start = (page - 1) * novelsPerPage;
@@ -206,7 +149,7 @@
         }
 
         for (const data of pagedData) {
-            const count = await getChapterCount(data.id);
+            const count = data.chapterCount || 0; 
             const statusClass = (data.status?.toLowerCase() === "completed") ? "status-completed" : "status-ongoing";
             
             novelContainer.innerHTML += `
@@ -243,12 +186,29 @@
         }
     }
 
-    // global loadNovels အဖြစ် သတ်မှတ်ထားသည် (Sidebar က ခေါ်သုံးနိုင်ရန်)
     window.loadNovels = async () => {
-        const q = query(collection(db, "novels"));
-        const snap = await getDocs(q);
-        allNovelsData = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        displayPage(1);
+        const CACHE_KEY = 'cached_novels_data';
+        const TIME_KEY = 'cached_novels_time';
+        const CACHE_DURATION = 48 * 60 * 60 * 1000; // ၄၈ နာရီ
+
+        const cachedNovels = localStorage.getItem(CACHE_KEY);
+        const cachedTime = localStorage.getItem(TIME_KEY);
+        const now = new Date().getTime();
+
+        if (cachedNovels && cachedTime && (now - cachedTime < CACHE_DURATION)) {
+            console.log("Loading from cache...");
+            allNovelsData = JSON.parse(cachedNovels);
+            displayPage(1);
+        } else {
+            console.log("Fetching fresh data from Firebase...");
+            const q = query(collection(db, "novels"));
+            const snap = await getDocs(q);
+            allNovelsData = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            
+            localStorage.setItem(CACHE_KEY, JSON.stringify(allNovelsData));
+            localStorage.setItem(TIME_KEY, now);
+            displayPage(1);
+        }
     }
     loadNovels();
 
@@ -261,9 +221,9 @@
     });
     </script>
     <script>
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('sw.js');
-  }
-</script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js');
+        }
+    </script>
 </body>
 </html>
