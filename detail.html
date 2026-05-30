@@ -32,12 +32,13 @@
         .active-page { padding: 8px 15px; background: #28a745; color: white; border: 1px solid #28a745; border-radius: 4px; font-weight: bold; }
         .summary-box { padding: 25px; background: white; margin-top: 10px; line-height: 1.7; border-top: 1px solid #eee; }
         .chapter-list { padding: 20px; background: white; }
-        .chapter-item { display: flex; justify-content: space-between; align-items: center; padding: 15px; background: #fff; margin-bottom: 8px; text-decoration: none; color: #333; border-radius: 8px; border: 1px solid #eee; border-left: 5px solid #28a745; transition: 0.2s; }
+        .chapter-item { display: flex; justify-content: space-between; align-items: center; padding: 15px; background: #fff; margin-bottom: 8px; text-decoration: none; color: #333; border-radius: 8px; border: 1px solid #eee; border-left: 5px solid #28a745; transition: 0.2s; cursor: pointer; }
         .chapter-item:hover { background: #f9f9f9; }
         .coin-tag { background: #fff3cd; padding: 4px 12px; border-radius: 20px; font-size: 14px; font-weight: bold; color: #856404; border: 1px solid #ffeeba; }
         .nav-btn { padding: 10px 20px; border: none; border-radius: 5px; background: #28a745; color: white; cursor: pointer; }
         .nav-btn:disabled { opacity: 0.5; cursor: not-allowed; }
         .navigation-controls { display: flex; justify-content: center; gap: 10px; padding: 20px; background: white; border-top: 1px solid #eee; }
+        #loading-msg { text-align: center; padding: 40px; font-size: 16px; color: #888; }
     </style>
 </head>
 <body oncontextmenu="return false;">
@@ -47,21 +48,20 @@
         <div id="theme-icon" class="theme-toggle" onclick="toggleTheme()">☀️</div>
     </header>
 
+    <div id="loading-msg">Loading...</div>
     <div id="novel-header-container"></div>
-    <div id="chapter-content" style="padding: 20px; line-height: 1.8; font-size: 19px; background: white;"></div>
+    <div id="chapter-content" style="padding: 20px; line-height: 1.8; font-size: 19px; background: white; display:none;"></div>
     <div class="navigation-controls" id="nav-container" style="display: none;">
         <button id="prevBtn" class="nav-btn">ရှေ့တစ်ခန်း</button>
         <button id="indexBtn" class="nav-btn" style="background:#6c757d;">မာတိကာ</button>
         <button id="nextBtn" class="nav-btn">နောက်တစ်ခန်း</button>
     </div>
-    <div class="summary-box" id="summary-section" style="display:none;"> 
+    <div class="summary-box" id="summary-section" style="display:none;">
         <h4 style="margin-top:0;">အကျဉ်းချုပ်</h4>
         <p id="novel-summary" style="color:#555;"></p>
     </div>
     <div id="chapters-container" class="chapter-list"></div>
     <div id="pagination-container" class="pagination-container"></div>
-
-    <button id="migrateBtn" style="position:fixed; bottom:20px; right:20px; padding:15px 25px; background:red; color:white; border:none; border-radius:30px; z-index:9999; display:none;">Migration စရန်</button>
 
     <script>
         function toggleTheme() {
@@ -78,7 +78,7 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.1/firebase-app.js";
-        import { getFirestore, doc, getDoc, collection, query, where, getDocs, updateDoc, arrayUnion, increment, setDoc } from "https://www.gstatic.com/firebasejs/10.12.1/firebase-firestore.js";
+        import { getFirestore, doc, getDoc, collection, getDocs, updateDoc, arrayUnion, increment } from "https://www.gstatic.com/firebasejs/10.12.1/firebase-firestore.js";
         import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.1/firebase-auth.js";
 
         const firebaseConfig = {
@@ -89,94 +89,137 @@
             messagingSenderId: "355249228773",
             appId: "1:355249228773:web:4ccda859de48a98dcdfd0c"
         };
+
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
         const auth = getAuth(app);
 
-        onAuthStateChanged(auth, (user) => {
-            if (user && user.email === "nsllzzz491@gmail.com") { document.getElementById('migrateBtn').style.display = "block"; }
-        });
-
-        document.getElementById('migrateBtn').onclick = async () => {
-            alert("Migration စတင်ပြီ...");
-            const chaptersSnap = await getDocs(collection(db, "chapters"));
-            for (const docSnap of chaptersSnap.docs) {
-                const chapter = docSnap.data();
-                if (!chapter.novelId) continue;
-                const partNo = Math.ceil((chapter.chapterNo || 1) / 100);
-                const novelPartId = `${chapter.novelId}_part${partNo}`;
-                await setDoc(doc(db, "novel_parts", novelPartId), {
-                    novelId: chapter.novelId,
-                    partNo: partNo,
-                    chapters: arrayUnion({ id: docSnap.id, chapterNo: chapter.chapterNo, title: chapter.title || "ခေါင်းစဉ်မရှိ", content: chapter.content || "", coinPrice: chapter.coinPrice || 0 })
-                }, { merge: true });
-            }
-            alert("Migration ပြီးပါပြီ!");
-        };
-
         const urlParams = new URLSearchParams(window.location.search);
-        const id = urlParams.get('id');
+        const novelId = urlParams.get('id');         // novel page အတွက်
+        const novelIdForChapter = urlParams.get('novelId'); // chapter page အတွက်
+        const chapterNo = parseInt(urlParams.get('chapterNo')); // chapter number
+
         const chaptersPerPage = 100;
-        const CACHE_DURATION = 24 * 60 * 60 * 1000; // ၂၄ နာရီ
+        const CACHE_DURATION = 24 * 60 * 60 * 1000;
 
-        async function loadDetail(pageNumber = 1) {
-            if(!id) return;
-
-            const CACHE_KEY = `detail_${id}_page_${pageNumber}`;
-            const TIME_KEY = `time_${id}_page_${pageNumber}`;
-            const cachedData = localStorage.getItem(CACHE_KEY);
+        // ==========================================
+        // novel_parts မှ chapter အားလုံး ရယူသည်
+        // ==========================================
+        async function getAllChaptersFromParts(nId) {
+            const CACHE_KEY = `novel_parts_${nId}`;
+            const TIME_KEY = `novel_parts_time_${nId}`;
+            const cached = localStorage.getItem(CACHE_KEY);
             const cachedTime = localStorage.getItem(TIME_KEY);
-            const now = new Date().getTime();
+            const now = Date.now();
 
-            if (cachedData && cachedTime && (now - cachedTime < CACHE_DURATION)) {
-                console.log("Loading from cache...");
-                const data = JSON.parse(cachedData);
-                document.getElementById('novel-header-container').innerHTML = data.header;
-                document.getElementById('novel-summary').innerText = data.summary;
-                document.getElementById('summary-section').style.display = "block";
-                document.getElementById('chapters-container').innerHTML = data.chapters;
-                renderPagination(data.totalChapters, pageNumber);
-                return;
+            if (cached && cachedTime && (now - cachedTime < CACHE_DURATION)) {
+                return JSON.parse(cached);
             }
+
+            // novel_parts collection မှ ဒီ novel နဲ့ ဆိုင်တဲ့ documents အားလုံး ရယူ
+            const partsSnap = await getDocs(collection(db, "novel_parts"));
+            let allChapters = [];
+
+            partsSnap.forEach(docSnap => {
+                const data = docSnap.data();
+                // ဒီ novel ရဲ့ parts တွေပဲ ယူ
+                if (data.novelId === nId && Array.isArray(data.chapters)) {
+                    allChapters = allChapters.concat(data.chapters);
+                }
+            });
+
+            // chapterNo အစဉ်လိုက် စီ
+            allChapters.sort((a, b) => a.chapterNo - b.chapterNo);
+
+            localStorage.setItem(CACHE_KEY, JSON.stringify(allChapters));
+            localStorage.setItem(TIME_KEY, now);
+
+            return allChapters;
+        }
+
+        // ==========================================
+        // NOVEL DETAIL PAGE (id=NOVEL_ID)
+        // ==========================================
+        async function loadDetail(pageNumber = 1) {
+            if (!novelId) return;
+
+            document.getElementById('loading-msg').style.display = 'block';
 
             onAuthStateChanged(auth, async (user) => {
                 try {
-                    const docRef = doc(db, "novels", id);
+                    const docRef = doc(db, "novels", novelId);
                     const docSnap = await getDoc(docRef);
-                    if (docSnap.exists()) {
-                        const data = docSnap.data();
-                        let viewerArray = data.viewers || [];
-                        let totalViews = viewerArray.length;
-                        if (user && !viewerArray.includes(user.uid)) { await updateDoc(docRef, { viewers: arrayUnion(user.uid) }); totalViews += 1; }
-                        let purchasedList = [];
-                        if (user) { const userSnap = await getDoc(doc(db, "users", user.uid)); if (userSnap.exists()) { purchasedList = userSnap.data().purchasedChapters || []; } }
-                        
-                        const headerHTML = `<div class="detail-container"><img src="${data.image}" class="detail-img"><div class="detail-title">${data.title}</div><div class="info-list"><div class="info-item"><span class="info-label">Translator</span><span class="info-value">${data.translator}</span></div><div class="info-item"><span class="info-label">Type</span><span class="info-value">${data.genre}</span></div><div class="info-item"><span class="info-label">Status</span><span class="status-badge">${data.status || 'Ongoing'}</span></div><div class="info-item"><span class="info-label">Views</span><span class="info-value">👁️ ${totalViews} Views</span></div></div></div>`;
-                        
-                        const q = query(collection(db, "chapters"), where("novelId", "==", id));
-                        const querySnapshot = await getDocs(q);
-                        let allChapters = [];
-                        querySnapshot.forEach((doc) => { allChapters.push({ id: doc.id, ...doc.data() }); });
-                        allChapters.sort((a, b) => a.chapterNo - b.chapterNo);
-                        
-                        let chaptersHTML = `<h4>အခန်းများ (${(pageNumber - 1) * chaptersPerPage + 1} - ${Math.min((pageNumber - 1) * chaptersPerPage + chaptersPerPage, allChapters.length)})</h4>`;
-                        allChapters.slice((pageNumber - 1) * chaptersPerPage, (pageNumber - 1) * chaptersPerPage + chaptersPerPage).forEach((chapter) => {
-                            const isBought = purchasedList.includes(chapter.id);
-                            chaptersHTML += `<a href="detail.html?id=${chapter.id}" class="chapter-item"><span>အခန်း (${chapter.chapterNo}) - ${chapter.title || 'ခေါင်းစဉ်မရှိ'}</span><span class="coin-tag">🪙 ${isBought ? 0 : (chapter.coinPrice || 0)}</span></a>`;
-                        });
 
-                        localStorage.setItem(CACHE_KEY, JSON.stringify({ header: headerHTML, summary: data.summary, chapters: chaptersHTML, totalChapters: allChapters.length }));
-                        localStorage.setItem(TIME_KEY, now);
-
-                        document.getElementById('novel-header-container').innerHTML = headerHTML;
-                        document.getElementById('novel-summary').innerText = data.summary;
-                        document.getElementById('summary-section').style.display = "block";
-                        document.getElementById('chapters-container').innerHTML = chaptersHTML;
-                        renderPagination(allChapters.length, pageNumber);
+                    if (!docSnap.exists()) {
+                        document.getElementById('loading-msg').innerText = 'Novel မတွေ့ပါ။';
+                        return;
                     }
-                } catch (e) { console.error(e); }
+
+                    const data = docSnap.data();
+
+                    // View count
+                    let viewerArray = data.viewers || [];
+                    let totalViews = viewerArray.length;
+                    if (user && !viewerArray.includes(user.uid)) {
+                        await updateDoc(docRef, { viewers: arrayUnion(user.uid) });
+                        totalViews += 1;
+                    }
+
+                    // User purchased chapters
+                    let purchasedList = [];
+                    if (user) {
+                        const userSnap = await getDoc(doc(db, "users", user.uid));
+                        if (userSnap.exists()) { purchasedList = userSnap.data().purchasedChapters || []; }
+                    }
+
+                    // Novel header
+                    document.getElementById('novel-header-container').innerHTML = `
+                        <div class="detail-container">
+                            <img src="${data.image}" class="detail-img">
+                            <div class="detail-title">${data.title}</div>
+                            <div class="info-list">
+                                <div class="info-item"><span class="info-label">Translator</span><span class="info-value">${data.translator}</span></div>
+                                <div class="info-item"><span class="info-label">Type</span><span class="info-value">${data.genre}</span></div>
+                                <div class="info-item"><span class="info-label">Status</span><span class="status-badge">${data.status || 'Ongoing'}</span></div>
+                                <div class="info-item"><span class="info-label">Views</span><span class="info-value">👁️ ${totalViews} Views</span></div>
+                            </div>
+                        </div>`;
+
+                    document.getElementById('novel-summary').innerText = data.summary;
+                    document.getElementById('summary-section').style.display = 'block';
+
+                    // novel_parts ကနေ chapters ယူ
+                    const allChapters = await getAllChaptersFromParts(novelId);
+
+                    const start = (pageNumber - 1) * chaptersPerPage;
+                    const end = start + chaptersPerPage;
+                    const pageChapters = allChapters.slice(start, end);
+
+                    let chaptersHTML = `<h4>အခန်းများ (${start + 1} - ${Math.min(end, allChapters.length)})</h4>`;
+                    pageChapters.forEach(chapter => {
+                        // purchased check - chapter.id နဲ့ (မရှိရင် novelId+chapterNo နဲ့)
+                        const chapterId = chapter.id || `${novelId}_ch${chapter.chapterNo}`;
+                        const isBought = purchasedList.includes(chapterId);
+                        const price = isBought ? 0 : (chapter.coinPrice || 0);
+                        // URL → novelId နဲ့ chapterNo သုံး
+                        chaptersHTML += `
+                            <div class="chapter-item" onclick="window.location.href='detail.html?novelId=${novelId}&chapterNo=${chapter.chapterNo}'">
+                                <span>အခန်း (${chapter.chapterNo}) - ${chapter.title || 'ခေါင်းစဉ်မရှိ'}</span>
+                                <span class="coin-tag">🪙 ${price}</span>
+                            </div>`;
+                    });
+
+                    document.getElementById('chapters-container').innerHTML = chaptersHTML;
+                    renderPagination(allChapters.length, pageNumber);
+                    document.getElementById('loading-msg').style.display = 'none';
+
+                } catch (e) {
+                    console.error(e);
+                    document.getElementById('loading-msg').innerText = 'Error: ' + e.message;
+                }
             });
         }
+
         function renderPagination(totalCount, currentPage) {
             const totalPages = Math.ceil(totalCount / chaptersPerPage);
             const navContainer = document.getElementById('pagination-container');
@@ -186,57 +229,149 @@
                 const btn = document.createElement('button');
                 btn.innerText = i;
                 btn.className = (i === currentPage) ? "active-page" : "page-btn";
-                btn.onclick = () => { window.scrollTo(0, document.getElementById('chapters-container').offsetTop - 20); loadDetail(i); };
+                btn.onclick = () => {
+                    window.scrollTo(0, document.getElementById('chapters-container').offsetTop - 20);
+                    loadDetail(i);
+                };
                 navContainer.appendChild(btn);
             }
         }
+
+        // ==========================================
+        // CHAPTER CONTENT PAGE (novelId=X&chapterNo=Y)
+        // ==========================================
         async function loadChapterContent() {
-            if (!id) return;
-            // chapter ID သည် novel ID နှင့် မတူကြောင်းသေချာစေရန်
-            const chapterDoc = await getDoc(doc(db, "chapters", id));
-            if (!chapterDoc.exists()) return; 
+            if (!novelIdForChapter || !chapterNo) return;
+
+            document.getElementById('loading-msg').style.display = 'block';
 
             onAuthStateChanged(auth, async (user) => {
-                if (!user) { document.getElementById('chapter-content').innerHTML = `<div style="text-align:center; padding:40px;"><h3>ဖတ်ရှုရန် Login အရင်ဝင်ပါ</h3><a href="login.html" class="nav-btn" style="text-decoration:none; display:inline-block;">Login</a></div>`; return; }
+                if (!user) {
+                    document.getElementById('loading-msg').style.display = 'none';
+                    document.getElementById('chapter-content').style.display = 'block';
+                    document.getElementById('chapter-content').innerHTML = `
+                        <div style="text-align:center; padding:40px;">
+                            <h3>ဖတ်ရှုရန် Login အရင်ဝင်ပါ</h3>
+                            <a href="login.html" class="nav-btn" style="text-decoration:none; display:inline-block;">Login</a>
+                        </div>`;
+                    return;
+                }
+
                 try {
-                    const data = chapterDoc.data();
-                    const coinRequired = data.coinPrice || 0;
+                    // novel_parts ကနေ chapters အားလုံး ယူ
+                    const allChapters = await getAllChaptersFromParts(novelIdForChapter);
+
+                    // chapterNo နဲ့ တိုက်ဆိုင် chapter ရှာ
+                    const chapter = allChapters.find(c => c.chapterNo === chapterNo);
+
+                    if (!chapter) {
+                        document.getElementById('loading-msg').innerText = 'အခန်း မတွေ့ပါ။';
+                        return;
+                    }
+
+                    const coinRequired = chapter.coinPrice || 0;
+                    const chapterId = chapter.id || `${novelIdForChapter}_ch${chapterNo}`;
+
+                    // User data
                     const userRef = doc(db, "users", user.uid);
                     const userSnap = await getDoc(userRef);
                     const userData = userSnap.data() || { coins: 0, purchasedChapters: [] };
-                    const isPurchased = userData.purchasedChapters?.includes(id);
+                    const isPurchased = (userData.purchasedChapters || []).includes(chapterId);
+
+                    // Coin check
                     if (coinRequired > 0 && !isPurchased) {
                         const confirmPurchase = confirm(`ဤအခန်းကိုဖတ်ရှုရန် Coin ${coinRequired} နှုတ်ယူပါမည်။`);
                         if (confirmPurchase) {
-                            if (userData.coins >= coinRequired) { await updateDoc(userRef, { coins: userData.coins - coinRequired, purchasedChapters: arrayUnion(id) }); await updateDoc(doc(db, "novels", data.novelId), { totalCoins: increment(coinRequired) }); alert("အောင်မြင်ပါသည်။"); }
-                            else { alert("Coin မလုံလောက်ပါ။"); window.location.href = `detail.html?id=${data.novelId}`; return; }
-                        } else { window.location.href = `detail.html?id=${data.novelId}`; return; }
+                            if (userData.coins >= coinRequired) {
+                                await updateDoc(userRef, {
+                                    coins: userData.coins - coinRequired,
+                                    purchasedChapters: arrayUnion(chapterId)
+                                });
+                                await updateDoc(doc(db, "novels", novelIdForChapter), {
+                                    totalCoins: increment(coinRequired)
+                                });
+                                alert("အောင်မြင်ပါသည်။");
+                            } else {
+                                alert("Coin မလုံလောက်ပါ။");
+                                window.location.href = `detail.html?id=${novelIdForChapter}`;
+                                return;
+                            }
+                        } else {
+                            window.location.href = `detail.html?id=${novelIdForChapter}`;
+                            return;
+                        }
                     }
+
+                    // Chapter content ပြသ
+                    document.getElementById('loading-msg').style.display = 'none';
                     document.getElementById('nav-container').style.display = 'flex';
                     document.getElementById('chapters-container').style.display = 'none';
                     document.getElementById('pagination-container').style.display = 'none';
                     document.getElementById('summary-section').style.display = 'none';
                     document.getElementById('novel-header-container').style.display = 'none';
-                    document.getElementById('chapter-content').innerHTML = `<h3 style="text-align:center; color:#555;">အခန်း (${data.chapterNo})</h3><h2 style="text-align:center;">${data.title || 'ခေါင်းစဉ်မရှိ'}</h2><hr style="opacity:0.2; margin: 20px 0;"><div style="white-space: pre-wrap;">${data.content || 'စာသားမရှိပါ။'}</div>`;
-                    setupNavigation(data.novelId, data.chapterNo);
-                } catch (e) { console.error(e); }
+                    document.getElementById('chapter-content').style.display = 'block';
+                    document.getElementById('chapter-content').innerHTML = `
+                        <h3 style="text-align:center; color:#555;">အခန်း (${chapter.chapterNo})</h3>
+                        <h2 style="text-align:center;">${chapter.title || 'ခေါင်းစဉ်မရှိ'}</h2>
+                        <hr style="opacity:0.2; margin: 20px 0;">
+                        <div style="white-space: pre-wrap;">${chapter.content || 'စာသားမရှိပါ။'}</div>`;
+
+                    // Navigation setup
+                    setupNavigation(allChapters, chapterNo);
+
+                } catch (e) {
+                    console.error(e);
+                    document.getElementById('loading-msg').innerText = 'Error: ' + e.message;
+                }
             });
         }
-        async function setupNavigation(nId, cNo) {
-            document.getElementById('indexBtn').onclick = () => { window.location.href = `detail.html?id=${nId}`; };
-            const chaptersRef = collection(db, "chapters");
-            const nextSnap = await getDocs(query(chaptersRef, where("novelId", "==", nId), where("chapterNo", "==", cNo + 1)));
-            if (!nextSnap.empty) { document.getElementById('nextBtn').onclick = () => window.location.href = `detail.html?id=${nextSnap.docs[0].id}`; document.getElementById('nextBtn').disabled = false; }
-            else { document.getElementById('nextBtn').disabled = true; document.getElementById('nextBtn').innerText = "နောက်ဆုံးခန်း"; }
-            const prevSnap = await getDocs(query(chaptersRef, where("novelId", "==", nId), where("chapterNo", "==", cNo - 1)));
-            if (!prevSnap.empty) { document.getElementById('prevBtn').onclick = () => window.location.href = `detail.html?id=${prevSnap.docs[0].id}`; document.getElementById('prevBtn').disabled = false; }
-            else { document.getElementById('prevBtn').disabled = true; }
+
+        function setupNavigation(allChapters, currentChapterNo) {
+            // မာတိကာ button
+            document.getElementById('indexBtn').onclick = () => {
+                window.location.href = `detail.html?id=${novelIdForChapter}`;
+            };
+
+            // Next chapter
+            const nextChapter = allChapters.find(c => c.chapterNo === currentChapterNo + 1);
+            if (nextChapter) {
+                document.getElementById('nextBtn').disabled = false;
+                document.getElementById('nextBtn').onclick = () => {
+                    window.location.href = `detail.html?novelId=${novelIdForChapter}&chapterNo=${nextChapter.chapterNo}`;
+                };
+            } else {
+                document.getElementById('nextBtn').disabled = true;
+                document.getElementById('nextBtn').innerText = "နောက်ဆုံးခန်း";
+            }
+
+            // Prev chapter
+            const prevChapter = allChapters.find(c => c.chapterNo === currentChapterNo - 1);
+            if (prevChapter) {
+                document.getElementById('prevBtn').disabled = false;
+                document.getElementById('prevBtn').onclick = () => {
+                    window.location.href = `detail.html?novelId=${novelIdForChapter}&chapterNo=${prevChapter.chapterNo}`;
+                };
+            } else {
+                document.getElementById('prevBtn').disabled = true;
+            }
         }
-        loadDetail();
-        loadChapterContent();
+
+        // ==========================================
+        // Main Entry Point
+        // ==========================================
+        if (novelIdForChapter && chapterNo) {
+            // Chapter reading mode
+            loadChapterContent();
+        } else if (novelId) {
+            // Novel detail mode
+            loadDetail();
+        } else {
+            document.getElementById('loading-msg').innerText = 'URL မှားနေပါသည်။';
+        }
+
     </script>
     <script>
-      if ('serviceWorker' in navigator) { navigator.serviceWorker.register('sw.js'); }
+        if ('serviceWorker' in navigator) { navigator.serviceWorker.register('sw.js'); }
     </script>
 </body>
 </html>
