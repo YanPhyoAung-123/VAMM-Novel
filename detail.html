@@ -99,8 +99,41 @@
         const novelIdForChapter = urlParams.get('novelId'); // chapter page အတွက်
         const chapterNo = parseInt(urlParams.get('chapterNo')); // chapter number
 
-        const chaptersPerPage = 100;
-        const CACHE_DURATION = 24 * 60 * 60 * 1000;
+        const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 နာရီ
+
+        // ==========================================
+        // LRU Cache - ပြည့်ရင် အဟောင်းဆုံး ဖျက်ပြီး အသစ်ထည့်
+        // ==========================================
+        function safeSetCache(key, timeKey, data) {
+            const value = JSON.stringify(data);
+            const now = Date.now();
+            try {
+                localStorage.setItem(key, value);
+                localStorage.setItem(timeKey, now);
+            } catch (e) {
+                // Storage ပြည့်နေရင် novel_parts cache အဟောင်းဆုံး ဖျက်
+                const entries = [];
+                for (let i = 0; i < localStorage.length; i++) {
+                    const k = localStorage.key(i);
+                    if (k && k.startsWith('novel_parts_time_')) {
+                        entries.push({ timeKey: k, dataKey: k.replace('_time_', '_'), time: parseInt(localStorage.getItem(k) || '0') });
+                    }
+                }
+                // အဟောင်းဆုံးကနေ စီပြီး ဖျက်
+                entries.sort((a, b) => a.time - b.time);
+                for (const entry of entries) {
+                    localStorage.removeItem(entry.dataKey);
+                    localStorage.removeItem(entry.timeKey);
+                    try {
+                        localStorage.setItem(key, value);
+                        localStorage.setItem(timeKey, now);
+                        break; // အောင်မြင်ရင် ရပ်
+                    } catch (e2) {
+                        continue; // မရသေးရင် ဆက်ဖျက်
+                    }
+                }
+            }
+        }
 
         // ==========================================
         // novel_parts မှ chapter အားလုံး ရယူသည်
@@ -112,7 +145,9 @@
             const cachedTime = localStorage.getItem(TIME_KEY);
             const now = Date.now();
 
-            if (cached && cachedTime && (now - cachedTime < CACHE_DURATION)) {
+            if (cached && cachedTime && (now - parseInt(cachedTime) < CACHE_DURATION)) {
+                // သုံးတိုင်း time update လုပ် (LRU tracking)
+                localStorage.setItem(TIME_KEY, now);
                 return JSON.parse(cached);
             }
 
@@ -131,8 +166,7 @@
             // chapterNo အစဉ်လိုက် စီ
             allChapters.sort((a, b) => a.chapterNo - b.chapterNo);
 
-            localStorage.setItem(CACHE_KEY, JSON.stringify(allChapters));
-            localStorage.setItem(TIME_KEY, now);
+            safeSetCache(CACHE_KEY, TIME_KEY, allChapters);
 
             return allChapters;
         }
@@ -140,7 +174,7 @@
         // ==========================================
         // NOVEL DETAIL PAGE (id=NOVEL_ID)
         // ==========================================
-        async function loadDetail(pageNumber = 1) {
+        async function loadDetail() {
             if (!novelId) return;
 
             document.getElementById('loading-msg').style.display = 'block';
@@ -185,32 +219,59 @@
                             </div>
                         </div>`;
 
-                    document.getElementById('novel-summary').innerText = data.summary;
+                    // Summary - more/less toggle
+                    const summaryText = data.summary || '';
+                    const summaryLimit = 150;
+                    const summaryEl = document.getElementById('novel-summary');
+                    if (summaryText.length > summaryLimit) {
+                        const shortText = summaryText.slice(0, summaryLimit);
+                        let expanded = false;
+                        const render = () => {
+                            summaryEl.innerHTML = expanded
+                                ? summaryText + ` <span id="sum-toggle" style="color:#28a745;cursor:pointer;font-weight:bold;">less ▲</span>`
+                                : shortText + `... <span id="sum-toggle" style="color:#28a745;cursor:pointer;font-weight:bold;">more ▼</span>`;
+                            document.getElementById('sum-toggle').onclick = () => { expanded = !expanded; render(); };
+                        };
+                        render();
+                    } else {
+                        summaryEl.innerText = summaryText;
+                    }
                     document.getElementById('summary-section').style.display = 'block';
 
                     // novel_parts ကနေ chapters ယူ
                     const allChapters = await getAllChaptersFromParts(novelId);
 
-                    const start = (pageNumber - 1) * chaptersPerPage;
-                    const end = start + chaptersPerPage;
-                    const pageChapters = allChapters.slice(start, end);
+                    // Volume ၂၀ စီ ခွဲ
+                    const chaptersPerVolume = 20;
+                    const totalVolumes = Math.ceil(allChapters.length / chaptersPerVolume);
+                    let chaptersHTML = `<h4 style="padding:0 5px;">အခန်းများ (စုစုပေါင်း ${allChapters.length})</h4>`;
 
-                    let chaptersHTML = `<h4>အခန်းများ (${start + 1} - ${Math.min(end, allChapters.length)})</h4>`;
-                    pageChapters.forEach(chapter => {
-                        // purchased check - chapter.id နဲ့ (မရှိရင် novelId+chapterNo နဲ့)
-                        const chapterId = chapter.id || `${novelId}_ch${chapter.chapterNo}`;
-                        const isBought = purchasedList.includes(chapterId);
-                        const price = isBought ? 0 : (chapter.coinPrice || 0);
-                        // URL → novelId နဲ့ chapterNo သုံး
+                    for (let vol = 0; vol < totalVolumes; vol++) {
+                        const volStart = vol * chaptersPerVolume;
+                        const volEnd = Math.min(volStart + chaptersPerVolume, allChapters.length);
+                        const volChapters = allChapters.slice(volStart, volEnd);
+                        const isOpen = (vol === 0);
                         chaptersHTML += `
-                            <div class="chapter-item" onclick="window.location.href='detail.html?novelId=${novelId}&chapterNo=${chapter.chapterNo}'">
-                                <span>အခန်း (${chapter.chapterNo}) - ${chapter.title || 'ခေါင်းစဉ်မရှိ'}</span>
-                                <span class="coin-tag">🪙 ${price}</span>
-                            </div>`;
-                    });
+                            <div style="margin-bottom:10px;">
+                                <div onclick="toggleVolume(${vol})" style="display:flex;justify-content:space-between;align-items:center;padding:12px 15px;background:#28a745;color:white;border-radius:${isOpen ? '8px 8px 0 0' : '8px'};cursor:pointer;font-weight:bold;" id="vol-header-${vol}">
+                                    <span>📚 Vol ${vol + 1} &nbsp;(${volStart + 1} - ${volEnd})</span>
+                                    <span id="vol-arrow-${vol}">${isOpen ? '▲' : '▼'}</span>
+                                </div>
+                                <div id="vol-body-${vol}" style="display:${isOpen ? 'block' : 'none'};border:1px solid #ddd;border-top:none;border-radius:0 0 8px 8px;padding:5px;">`;
+                        volChapters.forEach(chapter => {
+                            const chapterId = chapter.id || `${novelId}_ch${chapter.chapterNo}`;
+                            const isBought = purchasedList.includes(chapterId);
+                            const price = isBought ? 0 : (chapter.coinPrice || 0);
+                            chaptersHTML += `
+                                <div class="chapter-item" onclick="window.location.href='detail.html?novelId=${novelId}&chapterNo=${chapter.chapterNo}'">
+                                    <span>အခန်း (${chapter.chapterNo}) - ${chapter.title || 'ခေါင်းစဉ်မရှိ'}</span>
+                                    <span class="coin-tag">🪙 ${price}</span>
+                                </div>`;
+                        });
+                        chaptersHTML += `</div></div>`;
+                    }
 
                     document.getElementById('chapters-container').innerHTML = chaptersHTML;
-                    renderPagination(allChapters.length, pageNumber);
                     document.getElementById('loading-msg').style.display = 'none';
 
                 } catch (e) {
@@ -218,23 +279,6 @@
                     document.getElementById('loading-msg').innerText = 'Error: ' + e.message;
                 }
             });
-        }
-
-        function renderPagination(totalCount, currentPage) {
-            const totalPages = Math.ceil(totalCount / chaptersPerPage);
-            const navContainer = document.getElementById('pagination-container');
-            navContainer.innerHTML = "";
-            if (totalPages <= 1) return;
-            for (let i = 1; i <= totalPages; i++) {
-                const btn = document.createElement('button');
-                btn.innerText = i;
-                btn.className = (i === currentPage) ? "active-page" : "page-btn";
-                btn.onclick = () => {
-                    window.scrollTo(0, document.getElementById('chapters-container').offsetTop - 20);
-                    loadDetail(i);
-                };
-                navContainer.appendChild(btn);
-            }
         }
 
         // ==========================================
@@ -371,6 +415,16 @@
 
     </script>
     <script>
+        // Global function - module script ပြင်ပမှ access လုပ်နိုင်အောင်
+        function toggleVolume(vol) {
+            const body = document.getElementById('vol-body-' + vol);
+            const arrow = document.getElementById('vol-arrow-' + vol);
+            const header = document.getElementById('vol-header-' + vol);
+            const isOpen = body.style.display !== 'none';
+            body.style.display = isOpen ? 'none' : 'block';
+            arrow.innerText = isOpen ? '▼' : '▲';
+            header.style.borderRadius = isOpen ? '8px' : '8px 8px 0 0';
+        }
         if ('serviceWorker' in navigator) { navigator.serviceWorker.register('sw.js'); }
     </script>
 </body>
